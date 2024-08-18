@@ -4,6 +4,7 @@ use flate2::read::{GzDecoder, ZlibDecoder};
 use java_string::JavaString;
 use crate::positions::{BlockPos, ChunkPos};
 use crate::block::Block;
+use crate::nbt;
 use crate::nbt::{LeafTag, NbtPath, NbtPathElement, NbtVisitor, visit_nbt};
 
 pub struct Chunk {
@@ -46,31 +47,33 @@ impl ChunkVisitor {
     }
 
     #[inline]
-    fn visit_level(&mut self, val: LeafTag, path: &NbtPath) {
+    fn visit_level(&mut self, val: LeafTag, path: &NbtPath) -> nbt::Result<()> {
         let Some(NbtPathElement::Element(second_level)) = path.get(2) else {
-            panic!("Unexpected Chunk Structure");
+            return Err(nbt::Error::Custom("Unexpected Chunk Structure".to_string()));
         };
-        if *second_level == JavaString::from("Sections") {
-            self.visit_section(val, path);
-        } else if *second_level == JavaString::from("Entities") {
-            self.visit_entities(val, path);
-        } else if *second_level == JavaString::from("xPos") {
+        if second_level == "Sections" {
+            self.visit_section(val, path)?;
+        } else if second_level == "Entities" {
+            self.visit_entities(val, path)?;
+        } else if second_level == "xPos" {
             let LeafTag::Int(x_pos) = val else {
-                panic!("Unexpected Chunk Structure");
+                return Err(nbt::Error::Custom("Unexpected Chunk Structure, chunk xPos is not an int".to_string()));
             };
             self.data.pos.x = x_pos;
-        } else if *second_level == JavaString::from("zPos") {
+        } else if second_level == "zPos" {
             let LeafTag::Int(z_pos) = val else {
-                panic!("Unexpected Chunk Structure");
+                return Err(nbt::Error::Custom("Unexpected Chunk Structure, chunk zPos is not an int".to_string()));
             };
             self.data.pos.z = z_pos;
         }
+
+        Ok(())
     }
 
     #[inline]
-    fn visit_section(&mut self, val: LeafTag, path: &NbtPath) {
+    fn visit_section(&mut self, val: LeafTag, path: &NbtPath) -> nbt::Result<()> {
         let Some(NbtPathElement::Index(index)) = path.get(3) else {
-            panic!("Unexpected Chunk Structure");
+            return Err(nbt::Error::Custom("Unexpected Chunk Structure".to_string()));
         };
         let index = *index;
         if index == self.data.sections.len() {
@@ -80,30 +83,32 @@ impl ChunkVisitor {
             });
         }
         if index >= self.data.sections.len() {
-            panic!("Unexpected Visitor Order");
+            return Err(nbt::Error::Custom("Unexpected Section Visitor Order".to_string()));
         }
         let curr_section = self.data.sections.get_mut(index).unwrap();
         let Some(NbtPathElement::Element(field_name)) = path.get(4) else {
-            panic!("Unexpected Chunk Structure");
+            return Err(nbt::Error::Custom("Unexpected Chunk Structure".to_string()));
         };
 
-        if *field_name == JavaString::from("Blocks") {
+        if field_name == "Blocks" {
             let LeafTag::ByteArray(blocks) = val else {
-                panic!("Unexpected Chunk Structure");
+                return Err(nbt::Error::Custom("Unexpected Chunk Structure, Blocks not a byte array".to_string()));
             };
             curr_section.blocks = blocks;
-        } else if *field_name == JavaString::from("Data") {
+        } else if field_name == "Data" {
             let LeafTag::ByteArray(block_data) = val else {
-                panic!("Unexpected Chunk Structure");
+                return Err(nbt::Error::Custom("Unexpected Chunk Structure, Data not a byte array".to_string()));
             };
             curr_section.block_data = block_data;
         }
+
+         Ok(())
     }
 
     #[inline]
-    fn visit_entities(&mut self, val: LeafTag, path: &NbtPath) {
+    fn visit_entities(&mut self, val: LeafTag, path: &NbtPath) -> nbt::Result<()> {
         let Some(NbtPathElement::Index(index)) = path.get(3) else {
-            panic!("Unexpected Chunk Structure");
+            return Err(nbt::Error::Custom("Unexpected Chunk Structure".to_string()));
         };
         let index = *index;
         if index == self.data.entities.len() {
@@ -114,35 +119,38 @@ impl ChunkVisitor {
             });
         }
         if index >= self.data.entities.len() {
-            panic!("Unexpected Visitor Order");
+            return Err(nbt::Error::Custom("Unexpected Entity Visitor Order".to_string()));
         }
         let curr_entity = self.data.entities.get_mut(index).unwrap();
         let Some(NbtPathElement::Element(field_name)) = path.get(4) else {
-            panic!("Unexpected Chunk Structure");
+            return Err(nbt::Error::Custom("Unexpected Chunk Structure".to_string()));
         };
 
         if *field_name == JavaString::from("id") {
             let LeafTag::String(id) = val else {
-                panic!("Unexpected Chunk Structure");
+                return Err(nbt::Error::Custom("Unexpected Chunk Structure, entity id not string".to_string()));
             };
-            curr_entity.id = id.into_string().unwrap();
+            curr_entity.id = id.into_string()?;
         } else if *field_name == JavaString::from("Block") {
             let LeafTag::String(block) = val else {
-                panic!("Unexpected Chunk Structure");
+                return Err(nbt::Error::Custom("Unexpected Chunk Structure, entity Block not string".to_string()));
             };
-            curr_entity.block = Some(block.into_string().unwrap());
+            curr_entity.block = Some(block.into_string()?);
         }
+
+        Ok(())
     }
 }
 impl NbtVisitor for ChunkVisitor {
     #[inline]
-    fn visit_leaf(&mut self, val: LeafTag, path: &NbtPath) {
+    fn visit_leaf(&mut self, val: LeafTag, path: &NbtPath) -> nbt::Result<()> {
         let Some(NbtPathElement::Element(first_level)) = path.get(1) else {
-            panic!("Unexpected Chunk Structure");
+            return Err(nbt::Error::Custom("Unexpected Chunk Structure".to_string()));
         };
-        if *first_level == JavaString::from("Level") {
-            self.visit_level(val, path);
+        if first_level == "Level" {
+            self.visit_level(val, path)?;
         }
+        Ok(())
     }
 }
 

@@ -24,7 +24,7 @@ pub enum LeafTag {
 }
 
 pub trait NbtVisitor {
-    fn visit_leaf(&mut self, val: LeafTag, path: &NbtPath);
+    fn visit_leaf(&mut self, val: LeafTag, path: &NbtPath) -> Result<()>;
 }
 
 #[derive(Debug)]
@@ -102,31 +102,31 @@ pub fn visit_nbt<R: Read, V: NbtVisitor>(reader: &mut R, visitor: &mut V) -> Res
 fn visit_tag_body<R: Read, V: NbtVisitor>(reader: &mut R, visitor: &mut V, tag_id: TagId, curr_path: &mut NbtPath) -> Result<()> {
     match tag_id {
         TagId::Byte => {
-            visitor.visit_leaf(LeafTag::Byte(reader.read_i8()?), curr_path);
+            visitor.visit_leaf(LeafTag::Byte(reader.read_i8()?), curr_path)?;
         }
         TagId::Short => {
-            visitor.visit_leaf(LeafTag::Short(reader.read_i16::<BigEndian>()?), curr_path);
+            visitor.visit_leaf(LeafTag::Short(reader.read_i16::<BigEndian>()?), curr_path)?;
         }
         TagId::Int => {
-            visitor.visit_leaf(LeafTag::Int(reader.read_i32::<BigEndian>()?), curr_path);
+            visitor.visit_leaf(LeafTag::Int(reader.read_i32::<BigEndian>()?), curr_path)?;
         }
         TagId::Long => {
-            visitor.visit_leaf(LeafTag::Long(reader.read_i64::<BigEndian>()?), curr_path);
+            visitor.visit_leaf(LeafTag::Long(reader.read_i64::<BigEndian>()?), curr_path)?;
         }
         TagId::Float => {
-            visitor.visit_leaf(LeafTag::Float(reader.read_f32::<BigEndian>()?), curr_path);
+            visitor.visit_leaf(LeafTag::Float(reader.read_f32::<BigEndian>()?), curr_path)?;
         }
         TagId::Double => {
-            visitor.visit_leaf(LeafTag::Double(reader.read_f64::<BigEndian>()?), curr_path);
+            visitor.visit_leaf(LeafTag::Double(reader.read_f64::<BigEndian>()?), curr_path)?;
         }
         TagId::ByteArray => {
             let len = reader.read_i32::<BigEndian>()? as usize;
             let mut bytes = vec![0; len];
             reader.read_exact(&mut bytes)?;
-            visitor.visit_leaf(LeafTag::ByteArray(cast_byte_buf_to_signed(bytes)), curr_path);
+            visitor.visit_leaf(LeafTag::ByteArray(cast_byte_buf_to_signed(bytes)), curr_path)?;
         }
         TagId::String => {
-            visitor.visit_leaf(LeafTag::String(read_string(reader)?), curr_path);
+            visitor.visit_leaf(LeafTag::String(read_string(reader)?), curr_path)?;
         }
         TagId::List => {
             let tag_id = reader.read_u8()?.try_into()?;
@@ -150,11 +150,11 @@ fn visit_tag_body<R: Read, V: NbtVisitor>(reader: &mut R, visitor: &mut V, tag_i
         }
         TagId::IntArray => {
             let len = reader.read_i32::<BigEndian>()? as usize;
-            visitor.visit_leaf(LeafTag::IntArray(read_i32_array(reader, len)?), curr_path);
+            visitor.visit_leaf(LeafTag::IntArray(read_i32_array(reader, len)?), curr_path)?;
         }
         TagId::LongArray => {
             let len = reader.read_i32::<BigEndian>()? as usize;
-            visitor.visit_leaf(LeafTag::LongArray(read_i64_array(reader, len)?), curr_path);
+            visitor.visit_leaf(LeafTag::LongArray(read_i64_array(reader, len)?), curr_path)?;
         }
         TagId::End => return Err(Error::InvalidNbtEndTag)
     }

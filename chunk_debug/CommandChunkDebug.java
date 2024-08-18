@@ -28,9 +28,9 @@ import com.google.gson.*;
  * public ServerCommandManager()
  * {
  *     ...
- *     //CHUNK DEBUG START
+ *     // CHUNK DEBUG START
  *     this.registerCommand(new CommandChunkDebug());
- *     //CHUNK DEBUG END
+ *     // CHUNK DEBUG END
  *
  *     CommandBase.setAdminCommander(this);
  * }
@@ -40,18 +40,18 @@ import com.google.gson.*;
  *
  * ...
  * import org.apache.logging.log4j.Logger;
- * //CHUNK DEBUG START
+ * // CHUNK DEBUG START
  * import net.minecraft.command.CommandChunkDebug;
- * //CHUNK DEBUG END
+ * // CHUNK DEBUG END
  * ...
  *
  * In ChunkProviderGenerate.java
  *
  * ...
  * import net.minecraft.world.gen.structure.StructureOceanMonument;
- * //CHUNK DEBUG START
+ * // CHUNK DEBUG START
  * import net.minecraft.command.CommandChunkDebug;
- * //CHUNK DEBUG END
+ * // CHUNK DEBUG END
  * ...
  *
  * Make sure to also include the changes in comments on the onChunk* methods below
@@ -90,7 +90,7 @@ public class CommandChunkDebug extends CommandBase {
 
     private static ArrayList<ChunkDebugEntry> entries = new ArrayList<ChunkDebugEntry>();
 
-    private static int currentDimension = 0;
+    public static int currentDimension = 0;
 
     @Override
     public String getCommandName() {
@@ -122,10 +122,6 @@ public class CommandChunkDebug extends CommandBase {
     @Override
     public int getRequiredPermissionLevel() {
         return 0;
-    }
-
-    public static void setCurrentDimension(int dimension) {
-        CommandChunkDebug.currentDimension = dimension;
     }
 
     private static void startChunkDebug() {
@@ -186,6 +182,10 @@ public class CommandChunkDebug extends CommandBase {
         return metadata;
     }
 
+    private static int getDimensionFromWorld(World world) {
+        return world.provider.getDimensionId();
+    }
+
     /*
      * In ChunkProviderServer.java
      *
@@ -200,14 +200,14 @@ public class CommandChunkDebug extends CommandBase {
      *             // CHUNK DEBUG START
      *             else {
      *                 if (CommandChunkDebug.chunkDebugEnabled) {
-     *                     CommandChunkDebug.onChunkLoaded(x, z, null);
+     *                     CommandChunkDebug.onChunkLoaded(x, z, worldObj, null);
      *                 }
      *             }
      *             // CHUNK DEBUG END
      *     ...
      */
-    public static void onChunkLoaded(int x, int z, String custom) {
-        entries.add(new ChunkDebugEntry(x, z, getCurrentTick(), currentDimension, "LOADED", collectMetadata(custom)));
+    public static void onChunkLoaded(int x, int z, World world, String custom) {
+        entries.add(new ChunkDebugEntry(x, z, getCurrentTick(), getDimensionFromWorld(world), "LOADED", collectMetadata(custom)));
     }
 
     /*
@@ -219,12 +219,12 @@ public class CommandChunkDebug extends CommandBase {
      *             chunk = this.serverChunkGenerator.provideChunk(x, z);
      *             // CHUNK DEBUG START
      *             if (CommandChunkDebug.chunkDebugEnabled) {
-     *                 CommandChunkDebug.onChunkGenerated(x, z, null);
+     *                 CommandChunkDebug.onChunkGenerated(x, z, worldObj, null);
      *             }
      *             // CHUNK DEBUG END
      */
-    public static void onChunkGenerated(int x, int z, String custom) {
-        entries.add(new ChunkDebugEntry(x, z, getCurrentTick(), currentDimension, "GENERATED", collectMetadata(custom)));
+    public static void onChunkGenerated(int x, int z, World world, String custom) {
+        entries.add(new ChunkDebugEntry(x, z, getCurrentTick(), getDimensionFromWorld(world), "GENERATED", collectMetadata(custom)));
     }
 
     /*
@@ -234,15 +234,15 @@ public class CommandChunkDebug extends CommandBase {
      * {
      *     // CHUNK DEBUG START
      *     if (CommandChunkDebug.chunkDebugEnabled) {
-     *         CommandChunkDebug.onChunkPopulated(x, z, null);
+     *         CommandChunkDebug.onChunkPopulated(x, z, worldObj, null);
      *     }
      *     // CHUNK DEBUG END
      *
      *     BlockFalling.fallInstantly = true;
      *     ...
      */
-    public static void onChunkPopulated(int x, int z, String custom) {
-        entries.add(new ChunkDebugEntry(x, z, getCurrentTick(), currentDimension, "POPULATED", collectMetadata(custom)));
+    public static void onChunkPopulated(int x, int z, World world, String custom) {
+        entries.add(new ChunkDebugEntry(x, z, getCurrentTick(), getDimensionFromWorld(world), "POPULATED", collectMetadata(custom)));
     }
 
     /*
@@ -254,12 +254,12 @@ public class CommandChunkDebug extends CommandBase {
      * Directly after each, place:
      *     // CHUNK DEBUG START
      *     if (CommandChunkDebug.chunkDebugEnabled) {
-     *         CommandChunkDebug.onChunkUnloadScheduled(x, z, null);
+     *         CommandChunkDebug.onChunkUnloadScheduled(x, z, worldObj, null);
      *     }
      *     // CHUNK DEBUG END
      */
-    public static void onChunkUnloadScheduled(int x, int z, String custom) {
-        entries.add(new ChunkDebugEntry(x, z, getCurrentTick(), currentDimension, "UNLOAD_SCHEDULED", collectMetadata(custom)));
+    public static void onChunkUnloadScheduled(int x, int z, World world, String custom) {
+        entries.add(new ChunkDebugEntry(x, z, getCurrentTick(), getDimensionFromWorld(world), "UNLOAD_SCHEDULED", collectMetadata(custom)));
     }
 
     /*
@@ -273,12 +273,12 @@ public class CommandChunkDebug extends CommandBase {
      *
      *              // CHUNK DEBUG START
      *              if (CommandChunkDebug.chunkDebugEnabled) {
-     *                  CommandChunkDebug.onChunkUnloaded(chunk.xPosition, chunk.zPosition, null);
+     *                  CommandChunkDebug.onChunkUnloaded(chunk.xPosition, chunk.zPosition, worldObj, null);
      *              }
      *              // CHUNK DEBUG END
      *    ...
      */
-    public static void onChunkUnloaded(int x, int z, String custom) {
-        entries.add(new ChunkDebugEntry(x, z, getCurrentTick(), currentDimension, "UNLOADED", collectMetadata(custom)));
+    public static void onChunkUnloaded(int x, int z, World world, String custom) {
+        entries.add(new ChunkDebugEntry(x, z, getCurrentTick(), getDimensionFromWorld(world), "UNLOADED", collectMetadata(custom)));
     }
 }

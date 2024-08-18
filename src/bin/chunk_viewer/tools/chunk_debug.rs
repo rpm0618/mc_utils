@@ -145,8 +145,8 @@ impl ChunkDebugTool {
             let tick: u32 = parts[2].parse()?;
             let dimension = match parts[3] {
                 "0" => Dimension::Overworld,
-                "1" => Dimension::Nether,
-                "2" => Dimension::End,
+                "-1" => Dimension::Nether,
+                "1" => Dimension::End,
                 _ => bail!("Unexpected dimension {}", parts[3])
             };
             let event = match parts[4] {

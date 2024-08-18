@@ -75,12 +75,12 @@ impl BlockState {
 }
 impl Hash for BlockState {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_str(&self.block);
+        self.block.hash(state);
         let mut keys: Vec<&String> = self.properties.keys().collect();
         keys.sort();
         for key in keys {
-            state.write_str(key);
-            state.write_str(&self.properties[key]);
+            key.hash(state);
+            self.properties[key].hash(state);
         }
     }
 }

@@ -1,5 +1,3 @@
-#![feature(hasher_prefixfree_extras)]
-
 pub mod cluster_finder12;
 pub mod litematica;
 pub mod positions;

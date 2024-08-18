@@ -1,6 +1,7 @@
 use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::io::Error;
 use quartz_nbt::{compound, io, NbtCompound, NbtList};
 use quartz_nbt::io::Flavor;
 use crate::positions::BlockPos;
@@ -319,7 +320,7 @@ impl LitematicaBuilder {
         BlockPos::new(extents.min_x, extents.min_y, extents.min_z)
     }
 
-    pub fn save(&self, path: &str, name: &str) {
+    pub fn save(&self, path: &str, name: &str) -> Result<(), Error> {
 
         let mut regions = NbtCompound::new();
 
@@ -361,6 +362,6 @@ impl LitematicaBuilder {
 
         let mut data: Vec<u8> = Vec::new();
         io::write_nbt(&mut data, None, &root_tag, Flavor::GzCompressed).expect("NBT Write Failed");
-        std::fs::write(path, &data).expect("File Write Failed");
+        std::fs::write(path, &data)
     }
 }

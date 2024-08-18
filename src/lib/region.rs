@@ -82,8 +82,21 @@ impl Region {
         ((chunk.x & 31) as usize) + (((chunk.z & 31) as usize) * 32)
     }
 
+    pub fn get_chunk_offset(index: usize) -> ChunkPos {
+        ChunkPos {
+            x: (index & 31) as i32,
+            z: ((index / 32) & 31) as i32
+        }
+    }
+    
     pub fn get_chunk(&self, pos: ChunkPos) -> Option<&Chunk> {
         let index = Region::get_chunk_index(pos);
         self.chunks.get(&index)
+    }
+    
+    pub fn chunk_iter(&self) -> impl Iterator<Item=(ChunkPos, &Chunk)> {
+        self.chunks.iter().map(|(index, chunk)| {
+            (Self::get_chunk_offset(*index), chunk)
+        })
     }
 }

@@ -1,5 +1,5 @@
 use std::cmp::{max, min};
-use crate::positions::{ChunkPos, HashV1_12};
+use crate::positions::{ChunkPos};
 
 #[derive(Debug, Clone)]
 pub struct HashClusterInterval {
@@ -19,7 +19,7 @@ impl HashClusterInterval {
 
     fn update_interval(&mut self, chunk: ChunkPos, hash: i32, mask: i32) {
         self.min_hash = min(self.min_hash, hash);
-        let index = self.chunks.binary_search_by_key(&hash, |c| { c.hash::<HashV1_12>(mask) }).unwrap_or_else(|i| i);
+        let index = self.chunks.binary_search_by_key(&hash, |c| { c.hash(mask) }).unwrap_or_else(|i| i);
         self.chunks.insert(index, chunk);
     }
 
@@ -29,7 +29,7 @@ impl HashClusterInterval {
         // can't do better with a custom merge sort
         // https://doc.rust-lang.org/std/vec/struct.Vec.html#method.sort
         chunks.extend(interval2.chunks.iter());
-        chunks.sort_by_key(|a| { a.hash::<HashV1_12>(mask)});
+        chunks.sort_by_key(|a| { a.hash(mask)});
         HashClusterInterval {
             min_hash: min(interval1.min_hash, interval2.min_hash),
             chunks
@@ -37,11 +37,11 @@ impl HashClusterInterval {
     }
 
     pub fn clustering_for(&self, chunk: ChunkPos, mask: i32) -> u64 {
-        let hash = chunk.hash::<HashV1_12>(mask);
+        let hash = chunk.hash(mask);
         if !self.contains(hash) {
             return 0
         }
-        let index = self.chunks.binary_search_by_key(&hash, |c| c.hash::<HashV1_12>(mask)).unwrap_or_else(|i| i);
+        let index = self.chunks.binary_search_by_key(&hash, |c| c.hash(mask)).unwrap_or_else(|i| i);
         (self.chunks.len() - index) as u64
     }
 }
@@ -86,7 +86,7 @@ impl HashClusterSet {
     }
 
     pub fn cluster_for(&self, chunk: ChunkPos) -> Option<&HashClusterInterval> {
-        let chunk_hash = chunk.hash::<HashV1_12>(self.mask);
+        let chunk_hash = chunk.hash(self.mask);
         match self.intervals.binary_search_by_key(&chunk_hash, |i| i.min_hash) {
             Ok(index) => Some(&self.intervals[index]),
             Err(index) => {
@@ -98,6 +98,25 @@ impl HashClusterSet {
             }
         }
     }
+    
+    pub fn largest_cluster(&self) -> Option<&HashClusterInterval> {
+        if self.intervals.len() == 0 {
+            return None;
+        }
+        
+        let mut index = 0;
+        let mut largest_length = 0;
+        
+        for i in 0..self.intervals.len() {
+            let interval = &self.intervals[i];
+            if interval.chunks.len() > largest_length {
+                index = i;
+                largest_length = interval.chunks.len();
+            }
+        }
+        
+        Some(&self.intervals[index])
+    }
 
     pub fn add_chunk(&mut self, chunk: ChunkPos) {
         // Skip chunks on the world diagonal, they can unload
@@ -105,7 +124,7 @@ impl HashClusterSet {
             return;
         }
 
-        let chunk_hash = chunk.hash::<HashV1_12>(self.mask);
+        let chunk_hash = chunk.hash(self.mask);
 
         match self.intervals.binary_search_by_key(&chunk_hash, |i| i.min_hash) {
             Ok(index) => {

@@ -4,6 +4,7 @@ use ggez::graphics::Rect;
 use ggez::mint::Point2;
 use mc_utils::positions::ChunkPos;
 
+#[derive(PartialEq, Clone)]
 pub struct Viewport {
     pub screen_width: f32,
     pub screen_height: f32,
@@ -22,7 +23,7 @@ impl Viewport {
             screen_height: 600.0,
             scale_factor: 1.0,
 
-            view_origin: vec2(-100.0, -100.0),
+            view_origin: vec2(-400.0, -300.0),
             zoom: 1.0,
 
             chunk_size: 5.0
@@ -94,6 +95,15 @@ impl Viewport {
         Rect {
             x: (pos.x as f32) * self.chunk_size, y: (pos.z as f32) * self.chunk_size,
             w: self.chunk_size, h: self.chunk_size
+        }
+    }
+
+    pub fn chunk_rect_to_rect(&self, top_left: ChunkPos, bottom_right: ChunkPos) -> Rect {
+        let width = (bottom_right.x - top_left.x + 1) as f32;
+        let height = (bottom_right.z - top_left.z + 1) as f32;
+        Rect {
+            x: (top_left.x as f32) * self.chunk_size, y: (top_left.z as f32) * self.chunk_size,
+            w: width * self.chunk_size, h: height * self.chunk_size
         }
     }
 }

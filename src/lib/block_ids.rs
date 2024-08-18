@@ -1,0 +1,1 @@
+pub const FIRE: u8 = 51;

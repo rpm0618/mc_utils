@@ -1,149 +1,163 @@
 use std::any::Any;
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::path::Path;
-use ggez::{Context, GameResult};
+use std::collections::{HashMap, HashSet};
+use ggez::Context;
 use ggez::glam::vec2;
-use ggez::graphics::{Color, DrawParam, InstanceArray};
-use mc_utils::positions::{ChunkPos, HashV1_12};
+use ggez::graphics::{Canvas, Color, DrawParam, InstanceArray};
+use mc_utils::positions::ChunkPos;
 use crate::chunk_viewer::viewport::Viewport;
 
 pub trait ChunkLayer: Any {
-    fn instances(&self) -> &InstanceArray;
-    fn update_viewport(&mut self, viewport: &Viewport);
+    fn render(&mut self, viewport: &Viewport, ctx: &Context, canvas: &mut Canvas);
 }
 
-struct Layer {
+struct LayerGroupEntry {
     layer: Box<dyn ChunkLayer>,
-    z_index: i32
+    z_index: i32,
+    visible: bool
 }
-pub struct LayerMap {
-    layer_map: HashMap<String, Layer>
+pub struct LayerGroup {
+    layers: HashMap<String, LayerGroupEntry>,
+    sorted_layers: Vec<String>,
 }
-impl LayerMap {
+impl LayerGroup {
     pub fn new() -> Self {
         Self {
-            layer_map: HashMap::new()
+            layers: HashMap::new(),
+            sorted_layers: Vec::new(),
         }
     }
 
-    pub fn add_layer(&mut self, layer_name: &str, layer: Box<dyn ChunkLayer>, z_index: i32) {
-        self.layer_map.insert(layer_name.to_string(), Layer {
-            layer,
-            z_index
+    pub fn add_layer(&mut self, name: &str, layer: impl ChunkLayer, z_index: i32) {
+        self.layers.insert(name.to_string(), LayerGroupEntry {
+            layer: Box::new(layer),
+            z_index,
+             visible: true
         });
+        self.sort_layers();
     }
 
-    pub fn get_layer<C>(&self, layer_name: &String) -> Option<&C>
-        where C: ChunkLayer
-    {
-        if let Some(layer_box) = self.layer_map.get(layer_name) {
-            let layer_any = layer_box.layer.as_ref() as &dyn Any;
-            if let Some(layer) = layer_any.downcast_ref::<C>() {
-                return Some(layer)
+    pub fn get_layer<C: ChunkLayer>(&mut self, name: &str) -> Option<&C> {
+        let entry = self.layers.get(name)?;
+        let layer = entry.layer.as_ref() as &dyn Any;
+        Some(layer.downcast_ref::<C>()?)
+    }
+
+    pub fn get_layer_mut<C: ChunkLayer>(&mut self, name: &str) -> Option<&mut C> {
+        let entry = self.layers.get_mut(name)?;
+        let layer = entry.layer.as_mut() as &mut dyn Any;
+        Some(layer.downcast_mut::<C>()?)
+    }
+
+    pub fn remove_layer(&mut self, name: &str) {
+        self.layers.remove(name);
+        self.sort_layers();
+    }
+
+    pub fn set_visible(&mut self, name: &str, visible: bool) {
+        if let Some(entry) = self.layers.get_mut(name) {
+            entry.visible = visible;
+        }
+    }
+
+    fn sort_layers(&mut self) {
+        let mut layers_entries: Vec<_> = self.layers.iter().collect();
+        layers_entries.sort_by_key(|e| e.1.z_index);
+        self.sorted_layers = layers_entries.iter().map(|e| e.0.clone()).collect();
+    }
+}
+impl ChunkLayer for LayerGroup {
+    fn render(&mut self, viewport: &Viewport, ctx: &Context, canvas: &mut Canvas) {
+        for layer_name in &self.sorted_layers {
+            let layer_entry = self.layers.get_mut(layer_name).unwrap();
+            if layer_entry.visible {
+                layer_entry.layer.render(viewport, ctx, canvas);
             }
         }
-        None
     }
+}
 
-    pub fn get_layer_mut<C>(&mut self, layer_name: &str) -> Option<&mut C>
-        where C: ChunkLayer
-    {
-        if let Some(layer_box) = self.layer_map.get_mut(layer_name) {
-            let layer_any = layer_box.layer.as_mut() as &mut dyn Any;
-            if let Some(layer) = layer_any.downcast_mut::<C>() {
-                return Some(layer)
-            }
+pub struct ChunkColor {
+    primary: Color,
+    secondary: Option<Color>,
+}
+impl ChunkColor {
+    pub fn new(primary: Color, secondary: Option<Color>) -> Self {
+        Self {
+            primary,
+            secondary
         }
-        None
     }
-
-    pub fn get_all_layers(&self) -> Vec<&Box<dyn ChunkLayer>> {
-        let mut layers: Vec<_> = self.layer_map.values().collect();
-        layers.sort_by_key(|l| l.z_index);
-        layers.iter().map(|l| &l.layer).collect()
-    }
-
-    pub fn update_viewport(&mut self, viewport: &Viewport) {
-        let layers: Vec<_> = self.layer_map.values_mut().collect();
-        for layer in layers {
-            layer.layer.update_viewport(viewport)
-        }
+}
+impl Into<ChunkColor> for Color {
+    fn into(self) -> ChunkColor {
+        ChunkColor::new(self, None)
     }
 }
 
 pub trait VirtualChunkProvider {
-    fn color_for_chunk(&self, chunk: ChunkPos) -> Option<Color>;
+    fn chunks_in_viewport(&self, viewport: &Viewport) -> impl Iterator<Item=(ChunkPos, impl Into<ChunkColor>)>;
+    fn check_dirty(&mut self) -> bool;
 }
 
 pub struct VirtualChunkLayer<P: VirtualChunkProvider> {
-    chunk_instances: InstanceArray,
-    chunk_provider: P
+    pub provider: P,
+    instances: Option<InstanceArray>,
+    rendered: HashSet<ChunkPos>,
+    prev_viewport: Viewport,
 }
-impl<P> VirtualChunkLayer<P> where P: VirtualChunkProvider {
-    pub fn new(chunk_provider: P, ctx: &Context) -> Self {
+impl<P: VirtualChunkProvider> VirtualChunkLayer<P> {
+    pub fn new(provider: P) -> Self {
         Self {
-            chunk_provider,
-            chunk_instances: InstanceArray::new(ctx, None),
+            provider,
+            instances: None,
+            rendered: HashSet::new(),
+            prev_viewport: Viewport::new()
         }
     }
-}
-impl<P> ChunkLayer for VirtualChunkLayer<P> where P: VirtualChunkProvider + 'static {
-    fn instances(&self) -> &InstanceArray {
-        &self.chunk_instances
-    }
 
-    fn update_viewport(&mut self, viewport: &Viewport) {
-        self.chunk_instances.clear();
+    fn update_instances(&mut self, viewport: &Viewport) {
+        if let Some(instances) = &mut self.instances {
+            if self.provider.check_dirty() {
+                instances.clear();
+                self.rendered.clear();
+                self.prev_viewport = Viewport::new();
+            }
 
-        let top_left_chunk = viewport.chunk_at(vec2(0.0, 0.0));
-        let bottom_right_chunk = viewport.chunk_at(vec2(viewport.screen_width, viewport.screen_height));
-
-        for x in (top_left_chunk.x)..=(bottom_right_chunk.x) {
-            for z in (top_left_chunk.z)..=(bottom_right_chunk.z) {
-                let chunk = ChunkPos::new(x, z);
-                if let Some(color) = self.chunk_provider.color_for_chunk(chunk) {
-                    let chunk_rect = viewport.chunk_to_rect(chunk);
-                    self.chunk_instances.push(
-                        DrawParam::new()
-                            .dest(vec2(chunk_rect.x, chunk_rect.y))
-                            .scale(vec2(chunk_rect.w, chunk_rect.h))
-                            .color(color)
-                    )
+            if self.prev_viewport != *viewport {
+                for (chunk, color) in self.provider.chunks_in_viewport(viewport) {
+                    if !self.rendered.contains(&chunk) {
+                        self.rendered.insert(chunk);
+                        let chunk_rect = viewport.chunk_to_rect(chunk);
+                        let color = color.into();
+                        instances.push(
+                            DrawParam::new()
+                                .dest(vec2(chunk_rect.x, chunk_rect.y))
+                                .scale(vec2(chunk_rect.w, chunk_rect.h))
+                                .color(color.primary)
+                        );
+                        if let Some(secondary) = color.secondary {
+                            instances.push(
+                                DrawParam::new()
+                                    .dest(vec2(chunk_rect.x, chunk_rect.y))
+                                    .scale(vec2(chunk_rect.w / 2.0, chunk_rect.h / 2.0))
+                                    .color(secondary)
+                            );
+                        }
+                    }
                 }
+                self.prev_viewport = viewport.clone();
             }
         }
     }
 }
-
-fn ease_out_expo(x: f32) -> f32 {
-    if x == 1.0 {
-        1.0
-    } else {
-        1.0 - f32::powf(2.0, -10.0 * x)
-    }
-}
-
-pub struct HashProvider {
-    target_chunk: ChunkPos,
-    mask: i32
-}
-impl HashProvider {
-    pub fn new(target_chunk: ChunkPos, mask: i32) -> Self {
-        Self {
-            target_chunk, mask
+impl<P: VirtualChunkProvider + 'static> ChunkLayer for VirtualChunkLayer<P> {
+    fn render(&mut self, viewport: &Viewport, ctx: &Context, canvas: &mut Canvas) {
+        if self.instances.is_none() {
+            self.instances = Some(InstanceArray::new(ctx, None));
         }
-    }
-}
-impl VirtualChunkProvider for HashProvider {
-    fn color_for_chunk(&self, chunk: ChunkPos) -> Option<Color> {
-        let hash = chunk.hash::<HashV1_12>(self.mask);
-        let target_hash = self.target_chunk.hash::<HashV1_12>(self.mask);
-        let diff = (target_hash - hash).abs();
-        let ratio = ease_out_expo((diff as f32) / (self.mask as f32));
-
-        Some(Color::from([1.0, ratio, ratio, 1.0]))
+        self.update_instances(viewport);
+        let instances = self.instances.as_ref().expect("Uninitialized InstanceArray??");
+        canvas.draw(instances, [0.0, 0.0]);
     }
 }
 
@@ -158,74 +172,101 @@ impl DiagonalProvider {
     }
 }
 impl VirtualChunkProvider for DiagonalProvider {
-    fn color_for_chunk(&self, chunk: ChunkPos) -> Option<Color> {
-        if chunk.x == chunk.z || chunk.x == -chunk.z {
-            Some(self.color)
-        } else {
-            None
+    fn chunks_in_viewport(&self, viewport: &Viewport) -> impl Iterator<Item=(ChunkPos, impl Into<ChunkColor>)> {
+        let tl = viewport.chunk_at(vec2(0.0, 0.0));
+        let br = viewport.chunk_at(vec2(viewport.screen_width, viewport.screen_height));
+        let mut chunks: HashSet<ChunkPos> = HashSet::new();
+        if (tl.x..=br.x).contains(&tl.z) || (tl.z..=br.z).contains(&tl.x) {
+            let mut x = tl.x;
+            while x <= br.x && x <= br.z {
+                chunks.insert(ChunkPos::new(x, x));
+                x += 1;
+            }
         }
+
+        if (tl.x..=br.x).contains(&(-br.z)) || (tl.z..=br.z).contains(&(-tl.x)) {
+            let mut x = tl.x;
+            while x <= br.x && x <= -tl.z {
+                chunks.insert(ChunkPos::new(x, -x));
+                x += 1;
+            }
+        }
+
+        chunks.into_iter().map(|c| (c, self.color))
+    }
+
+    fn check_dirty(&mut self) -> bool {
+        false
     }
 }
 
-pub struct VecLayer {
-    chunk_instances: InstanceArray,
-    chunks: Vec<ChunkPos>,
-    color: Color,
-    prev_chunk_size: f32,
+pub struct CheckerboardProvider<P: VirtualChunkProvider> {
+    pub provider: P,
+    highlight: Color,
     dirty: bool
 }
-impl VecLayer {
-    pub fn new(chunks: Vec<ChunkPos>, color: Color, ctx: &Context) -> Self {
-        let chunk_instances = InstanceArray::new(ctx, None);
+impl<P: VirtualChunkProvider> CheckerboardProvider<P> {
+    pub fn new(provider: P, highlight: Color) -> Self {
         Self {
-            chunk_instances,
-            chunks,
-            color,
-            prev_chunk_size: 0.0,
+            provider,
+            highlight,
             dirty: false
         }
     }
-
-    pub fn from_csv<P: AsRef<Path>>(path: P, color: Color, ctx: &Context) -> GameResult<Self> {
-        let mut chunks: Vec<ChunkPos> = Vec::new();
-        let chunks_file = File::open(path)?;
-        for line in BufReader::new(chunks_file).lines() {
-            let line = line?;
-            let coords: Vec<&str> = line.split(",").collect();
-            let x = coords[0].parse::<i32>().unwrap();
-            let z = coords[1].parse::<i32>().unwrap();
-            chunks.push(ChunkPos::new(x, z));
-        }
-
-
-        let chunk_instances = InstanceArray::new(ctx, None);
-        Ok(Self {
-            chunk_instances,
-            chunks,
-            color,
-            prev_chunk_size: 0.0,
-            dirty: false
+}
+impl<P: VirtualChunkProvider> VirtualChunkProvider for CheckerboardProvider<P> {
+    fn chunks_in_viewport(&self, viewport: &Viewport) -> impl Iterator<Item=(ChunkPos, impl Into<ChunkColor>)> {
+        self.provider.chunks_in_viewport(viewport).map(|(position, color)| {
+            let mut color = color.into();
+            let parity_x = position.x.abs() % 2;
+            let parity_z = position.z.abs() % 2;
+            if parity_x == parity_z {
+                let (r, g, b, a) = color.primary.to_rgba();
+                let (hr, hg, hb, ha) = self.highlight.to_rgba();
+                let r = r.saturating_add(hr);
+                let g = g.saturating_add(hg);
+                let b = b.saturating_add(hb);
+                let a = a.saturating_add(ha);
+                color.primary = Color::from_rgba(r, g, b, a);
+            }
+            (position, color)
         })
     }
 
-    pub fn set_chunks(&mut self, chunks: Vec<ChunkPos>) {
+    fn check_dirty(&mut self) -> bool {
+        let result = self.provider.check_dirty() || self.dirty;
+        self.dirty = false;
+        result
+    }
+}
+
+pub struct HashSetLayer {
+    color: Color,
+    chunks: HashSet<ChunkPos>,
+    dirty: bool,
+    instances: Option<InstanceArray>
+}
+impl HashSetLayer {
+    pub fn new(chunks: HashSet<ChunkPos>, color: Color) -> Self {
+        Self {
+            color,
+            chunks,
+            instances: None,
+            dirty: false
+        }
+    }
+
+    pub fn set_chunks(&mut self, chunks: HashSet<ChunkPos>) {
         self.chunks = chunks;
         self.dirty = true;
     }
-}
-impl ChunkLayer for VecLayer {
-    fn instances(&self) -> &InstanceArray {
-        &self.chunk_instances
-    }
 
-    fn update_viewport(&mut self, viewport: &Viewport) {
-        if self.prev_chunk_size != viewport.chunk_size || self.dirty {
-            self.prev_chunk_size = viewport.chunk_size;
-            self.dirty = false;
-            self.chunk_instances.clear();
+    fn update_instances(&mut self, viewport: &Viewport) {
+        if let Some(instances) = &mut self.instances {
+            instances.clear();
             for chunk in &self.chunks {
                 let chunk_rect = viewport.chunk_to_rect(*chunk);
-                self.chunk_instances.push(
+                instances.push(
                     DrawParam::new()
                         .dest(vec2(chunk_rect.x, chunk_rect.y))
                         .scale(vec2(chunk_rect.w, chunk_rect.h))
@@ -233,5 +274,19 @@ impl ChunkLayer for VecLayer {
                 );
             }
         }
+    }
+}
+impl ChunkLayer for HashSetLayer {
+    fn render(&mut self, viewport: &Viewport, ctx: &Context, canvas: &mut Canvas) {
+        if self.instances.is_none() {
+            self.instances = Some(InstanceArray::new(ctx, None));
+            self.update_instances(viewport);
+        }
+        if self.dirty {
+            self.dirty = false;
+            self.update_instances(viewport);
+        }
+        let instances = self.instances.as_ref().expect("InstanceArray is uninitialized?");
+        canvas.draw(instances, [0.0, 0.0]);
     }
 }

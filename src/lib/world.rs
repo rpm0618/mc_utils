@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fs::{OpenOptions};
+use std::fs::{DirEntry, OpenOptions, read_dir};
 use std::io::{Cursor, Error, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use crate::chunk::Chunk;
@@ -8,6 +8,7 @@ use crate::region::Region;
 
 // https://minecraft.fandom.com/wiki/Region_file_format
 
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum Dimension {
     Overworld,
     Nether,
@@ -63,27 +64,64 @@ impl World {
         }
 
         let path = World::get_region_path(&self.world_path, pos, dim);
-
         if path.exists() {
-            println!("Loading region {:?}", path);
             let region_data = std::fs::read(&path)?;
             let region = Region::parse(&mut Cursor::new(region_data))?;
 
             regions.insert(pos, region);
-
             Ok(Some(&regions[&pos]))
         } else {
             Ok(None)
         }
     }
 
-    pub fn get_region_path(world_path: &str, pos: RegionPos, dim: Dimension) -> PathBuf {
-        let suffix = match dim {
+    pub fn get_region_uncached(&self, pos: RegionPos, dim: Dimension) -> Result<Option<Region>, Error> {
+        let path = World::get_region_path(&self.world_path, pos, dim);
+        if path.exists() {
+            let region_data = std::fs::read(&path)?;
+            let region = Region::parse(&mut Cursor::new(region_data))?;
+
+            Ok(Some(region))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn region_pos_iter(&self, dim: Dimension) -> Result<impl Iterator<Item=RegionPos> + '_, Error> {
+        Ok(Self::region_file_iter(&self.world_path, dim)?.map(move |res| {
+            let entry = res.unwrap();
+            let file_name = entry.file_name().into_string().unwrap();
+            let parts: Vec<_> = file_name.split(".").collect();
+            let x = parts[1].parse::<i32>().unwrap();
+            let z = parts[2].parse::<i32>().unwrap();
+            RegionPos::new(x, z)
+        }))
+    }
+
+    pub fn get_num_regions(&self, dim: Dimension) -> Result<usize, Error> {
+        Ok(Self::region_file_iter(&self.world_path, dim)?.collect::<Vec<_>>().len())
+    }
+
+    fn region_file_iter(world_path: &str, dim: Dimension) -> Result<impl Iterator<Item=Result<DirEntry,Error>>, Error> {
+        Ok(read_dir(Path::new(world_path).join(&Self::get_region_suffix(dim)))?.filter(|res| {
+            if res.is_err() {
+                return false;
+            }
+            let entry = res.as_ref().unwrap();
+            entry.file_name().into_string().map_or(false, |name| name.contains("r.") && name.contains(".mca"))
+        }))
+    }
+
+    fn get_region_path(world_path: &str, pos: RegionPos, dim: Dimension) -> PathBuf {
+        let region_name = format!("r.{}.{}.mca", pos.x, pos.z);
+        Path::new(world_path).join(&Self::get_region_suffix(dim)).join(&region_name)
+    }
+
+    fn get_region_suffix(dim: Dimension) -> PathBuf {
+        match dim {
             Dimension::Overworld => Path::new("region").into(),
             Dimension::Nether => Path::new("DIM-1").join("region"),
             Dimension::End => Path::new("DIM1").join("region")
-        };
-        let region_name = format!("r.{}.{}.mca", pos.x, pos.z);
-        Path::new(world_path).join(&suffix).join(&region_name)
+        }
     }
 }

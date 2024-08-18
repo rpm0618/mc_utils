@@ -14,7 +14,7 @@
                 pkgs = import nixpkgs {
                     inherit system overlays;
                 };
-                rustToolchain = pkgs.rust-bin.nightly."2024-08-16".default;
+                rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
                 rustPlatform = pkgs.makeRustPlatform {
                     cargo = rustToolchain;
                     rustc = rustToolchain;

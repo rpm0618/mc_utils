@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::nbt::TagId;
 
 #[derive(Error, Debug)]
-pub enum Error {
+pub enum NbtError {
     #[error("Invalid NBT Tag ID {0:}")]
     InvalidTagId(#[from] TryFromPrimitiveError<TagId>),
     #[error("Invalid Nbt Root Tag {0:?}")]
@@ -20,4 +20,4 @@ pub enum Error {
     Custom(String)
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, NbtError>;

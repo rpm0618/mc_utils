@@ -1,6 +1,11 @@
+//! A lightweight NBT parser designed for correctness and performance. Specifically, it uses the
+//! `java_string` crate to handle the invalid UTF code points that java strings can have (only 
+//! really applicable if the world contains save-state books), and provides a streaming visitor api
+//! to allow for not holding the entire chunk in memory if not needed. 
+
 mod error;
 
-pub use error::{Error, Result};
+pub use error::{NbtError, Result};
 
 use std::io::Read;
 use byteorder::{BigEndian, ReadBytesExt};
@@ -86,7 +91,7 @@ pub enum TagId {
 pub fn visit_nbt<R: Read, V: NbtVisitor>(reader: &mut R, visitor: &mut V) -> Result<()> {
     let root_id: TagId = reader.read_u8()?.try_into()?;
     if root_id != TagId::Compound {
-        return Err(Error::InvalidNbtRoot(root_id));
+        return Err(NbtError::InvalidNbtRoot(root_id));
     }
 
     let mut curr_path = NbtPath::new();
@@ -156,7 +161,7 @@ fn visit_tag_body<R: Read, V: NbtVisitor>(reader: &mut R, visitor: &mut V, tag_i
             let len = reader.read_i32::<BigEndian>()? as usize;
             visitor.visit_leaf(LeafTag::LongArray(read_i64_array(reader, len)?), curr_path)?;
         }
-        TagId::End => return Err(Error::InvalidNbtEndTag)
+        TagId::End => return Err(NbtError::InvalidNbtEndTag)
     }
 
     Ok(())

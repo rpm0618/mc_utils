@@ -1,5 +1,7 @@
 use std::any::Any;
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 use ggez::Context;
 use ggez::glam::vec2;
 use ggez::graphics::{Canvas, Color, DrawParam, InstanceArray};
@@ -76,6 +78,7 @@ impl ChunkLayer for LayerGroup {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct ChunkColor {
     primary: Color,
     secondary: Option<Color>,
@@ -95,8 +98,18 @@ impl Into<ChunkColor> for Color {
 }
 
 pub trait VirtualChunkProvider {
-    fn chunks_in_viewport(&self, viewport: &Viewport) -> impl Iterator<Item=(ChunkPos, impl Into<ChunkColor>)>;
+    fn chunks_in_viewport(&self, viewport: &Viewport, already_rendered: &HashSet<ChunkPos>) -> Vec<(ChunkPos, ChunkColor)>;
     fn check_dirty(&mut self) -> bool;
+}
+
+impl<P: VirtualChunkProvider> VirtualChunkProvider for Rc<RefCell<P>> {
+    fn chunks_in_viewport(&self, viewport: &Viewport, already_rendered: &HashSet<ChunkPos>) -> Vec<(ChunkPos, ChunkColor)> {
+        self.borrow().chunks_in_viewport(viewport, already_rendered)
+    }
+
+    fn check_dirty(&mut self) -> bool {
+        self.borrow_mut().check_dirty()
+    }
 }
 
 pub struct VirtualChunkLayer<P: VirtualChunkProvider> {
@@ -124,11 +137,10 @@ impl<P: VirtualChunkProvider> VirtualChunkLayer<P> {
             }
 
             if self.prev_viewport != *viewport {
-                for (chunk, color) in self.provider.chunks_in_viewport(viewport) {
+                for (chunk, color) in self.provider.chunks_in_viewport(viewport, &self.rendered) {
                     if !self.rendered.contains(&chunk) {
                         self.rendered.insert(chunk);
                         let chunk_rect = viewport.chunk_to_rect(chunk);
-                        let color = color.into();
                         instances.push(
                             DrawParam::new()
                                 .dest(vec2(chunk_rect.x, chunk_rect.y))
@@ -172,14 +184,17 @@ impl DiagonalProvider {
     }
 }
 impl VirtualChunkProvider for DiagonalProvider {
-    fn chunks_in_viewport(&self, viewport: &Viewport) -> impl Iterator<Item=(ChunkPos, impl Into<ChunkColor>)> {
+    fn chunks_in_viewport(&self, viewport: &Viewport, already_rendered: &HashSet<ChunkPos>) -> Vec<(ChunkPos, ChunkColor)> {
         let tl = viewport.chunk_at(vec2(0.0, 0.0));
         let br = viewport.chunk_at(vec2(viewport.screen_width, viewport.screen_height));
         let mut chunks: HashSet<ChunkPos> = HashSet::new();
         if (tl.x..=br.x).contains(&tl.z) || (tl.z..=br.z).contains(&tl.x) {
             let mut x = tl.x;
             while x <= br.x && x <= br.z {
-                chunks.insert(ChunkPos::new(x, x));
+                let position = ChunkPos::new(x, x);
+                if !already_rendered.contains(&position) {
+                    chunks.insert(position);
+                }
                 x += 1;
             }
         }
@@ -187,12 +202,15 @@ impl VirtualChunkProvider for DiagonalProvider {
         if (tl.x..=br.x).contains(&(-br.z)) || (tl.z..=br.z).contains(&(-tl.x)) {
             let mut x = tl.x;
             while x <= br.x && x <= -tl.z {
-                chunks.insert(ChunkPos::new(x, -x));
+                let position = ChunkPos::new(x, -x);
+                if !already_rendered.contains(&position) {
+                    chunks.insert(position);
+                }
                 x += 1;
             }
         }
 
-        chunks.into_iter().map(|c| (c, self.color))
+        chunks.into_iter().map(|c| (c, self.color.into())).collect()
     }
 
     fn check_dirty(&mut self) -> bool {
@@ -215,9 +233,10 @@ impl<P: VirtualChunkProvider> CheckerboardProvider<P> {
     }
 }
 impl<P: VirtualChunkProvider> VirtualChunkProvider for CheckerboardProvider<P> {
-    fn chunks_in_viewport(&self, viewport: &Viewport) -> impl Iterator<Item=(ChunkPos, impl Into<ChunkColor>)> {
-        self.provider.chunks_in_viewport(viewport).map(|(position, color)| {
-            let mut color = color.into();
+
+    fn chunks_in_viewport(&self, viewport: &Viewport, already_rendered: &HashSet<ChunkPos>) -> Vec<(ChunkPos, ChunkColor)> {
+        self.provider.chunks_in_viewport(viewport, already_rendered).into_iter().map(|(position, color)| {
+            let mut color: ChunkColor = color.into();
             let parity_x = position.x.abs() % 2;
             let parity_z = position.z.abs() % 2;
             if parity_x == parity_z {
@@ -230,7 +249,7 @@ impl<P: VirtualChunkProvider> VirtualChunkProvider for CheckerboardProvider<P> {
                 color.primary = Color::from_rgba(r, g, b, a);
             }
             (position, color)
-        })
+        }).collect()
     }
 
     fn check_dirty(&mut self) -> bool {

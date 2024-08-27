@@ -71,6 +71,14 @@ impl CommonState {
         let selection_layer = self.layers.get_layer_mut::<HashSetLayer>("selection").unwrap();
         selection_layer.set_chunks(self.selection.clone());
     }
+
+    pub fn get_selected_chunk(&self) -> Option<ChunkPos> {
+        if self.selection.len() == 1 {
+            Some(*self.selection.iter().next()?)
+        } else {
+            None
+        }
+    }
 }
 
 pub struct State {
@@ -305,7 +313,6 @@ impl event::EventHandler<GameError> for ViewerEventHandler {
     }
 
     fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) -> Result<(), GameError> {
-        self.gui.input.resize_event(width, height);
         let state = &mut self.state.common_state;
         state.viewport.on_resize(width, height, ctx.gfx.window().scale_factor() as f32);
         self.gui.input.set_scale_factor(state.viewport.scale_factor * state.viewport.zoom, (width, height));

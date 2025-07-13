@@ -106,4 +106,17 @@ impl Viewport {
             w: width * self.chunk_size, h: height * self.chunk_size
         }
     }
+
+    pub fn center_on_chunk(&mut self, chunk: ChunkPos) {
+        // Calculate the center position of the chunk in world coordinates
+        let chunk_center_x = (chunk.x as f32 + 0.5) * self.chunk_size;
+        let chunk_center_y = (chunk.z as f32 + 0.5) * self.chunk_size;
+
+        // Calculate the center of the screen in scaled coordinates
+        let screen_center_x = self.screen_width / (2.0 * self.scale_factor * self.zoom);
+        let screen_center_y = self.screen_height / (2.0 * self.scale_factor * self.zoom);
+
+        // Set view_origin so that the chunk is centered on the screen
+        self.view_origin = vec2(chunk_center_x - screen_center_x, chunk_center_y - screen_center_y);
+    }
 }

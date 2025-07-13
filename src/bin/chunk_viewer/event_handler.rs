@@ -34,7 +34,9 @@ pub struct CommonState {
     dragging: bool,
     selecting_range: bool,
     world_diagonals: bool,
-    selection_mode: SelectionMode
+    selection_mode: SelectionMode,
+
+    goto_chunk: ChunkPos
 }
 impl CommonState {
     fn on_range_selection(&mut self, corner1: ChunkPos, corner2: ChunkPos) {
@@ -119,6 +121,7 @@ impl ViewerEventHandler {
                     world_diagonals: false,
                     selection_mode: SelectionMode::Single,
                     gui_wants_input: false,
+                    goto_chunk: ChunkPos::new(0, 0)
                 },
                 toolbox
             }
@@ -158,6 +161,15 @@ impl event::EventHandler<GameError> for ViewerEventHandler {
                         ui.selectable_value(&mut state.selection_mode, SelectionMode::Single, "Single");
                         ui.selectable_value(&mut state.selection_mode, SelectionMode::Add, "Add");
                         ui.selectable_value(&mut state.selection_mode, SelectionMode::Subtract, "Subtract");
+                    });
+                    ui.end_row();
+
+                    if ui.button("Go To").clicked() {
+                        state.viewport.center_on_chunk(state.goto_chunk);
+                    }
+                    ui.horizontal(|ui| {
+                        ui.add(egui::DragValue::new(&mut state.goto_chunk.x));
+                        ui.add(egui::DragValue::new(&mut state.goto_chunk.z));
                     });
                     ui.end_row();
 
@@ -282,6 +294,7 @@ impl event::EventHandler<GameError> for ViewerEventHandler {
                 state.selecting_range = false;
                 state.on_range_selection(state.selection_rect_origin.unwrap(), mouse_chunk);
             } else {
+                state.goto_chunk = mouse_chunk;
                 state.on_single_selection(mouse_chunk);
                 self.state.toolbox.on_chunk_selected(mouse_chunk, state);
             }

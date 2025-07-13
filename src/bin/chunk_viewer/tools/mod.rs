@@ -2,10 +2,10 @@ pub mod nether_falling_block;
 pub mod chunk_debug;
 
 use std::any::Any;
-use ggegui::GuiContext;
 use std::collections::HashMap;
 use mc_utils::positions::ChunkPos;
 use crate::chunk_viewer::event_handler::{CommonState, State};
+use crate::chunk_viewer::gui::GuiContext;
 use crate::chunk_viewer::task_list::TaskList;
 
 pub trait Tool: Any {

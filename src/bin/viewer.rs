@@ -1,4 +1,3 @@
-#![feature(trait_upcasting)]
 mod chunk_viewer;
 
 use ggez::{ContextBuilder, event,GameResult};

@@ -1,7 +1,6 @@
 use std::cmp::{max, min};
 use std::collections::HashSet;
-use ggegui::{egui, Gui};
-use ggegui::egui::Align2;
+use egui::Align2;
 use ggez::{Context, event, GameError, GameResult, graphics};
 use ggez::event::MouseButton;
 use ggez::graphics::{Color, DrawMode, DrawParam, Mesh};
@@ -9,6 +8,7 @@ use mc_utils::positions::ChunkPos;
 use crate::chunk_viewer::viewport::Viewport;
 
 use crate::chunk_viewer::chunk_layer::{ChunkLayer, DiagonalProvider, HashSetLayer, LayerGroup, VirtualChunkLayer};
+use crate::chunk_viewer::gui::Gui;
 use crate::chunk_viewer::task_list::TaskList;
 use crate::chunk_viewer::tools::nether_falling_block::NetherFallingBlockTool;
 use crate::chunk_viewer::tools::{Toolbox};
@@ -28,7 +28,9 @@ pub struct CommonState {
     pub selection: HashSet<ChunkPos>,
 
     selection_rect_origin: Option<ChunkPos>,
-    
+
+    gui_wants_input: bool,
+
     dragging: bool,
     selecting_range: bool,
     world_diagonals: bool,
@@ -115,10 +117,11 @@ impl ViewerEventHandler {
                     selection_rect_origin: None,
                     selecting_range: false,
                     world_diagonals: false,
-                    selection_mode: SelectionMode::Single
+                    selection_mode: SelectionMode::Single,
+                    gui_wants_input: false,
                 },
                 toolbox
-            },
+            }
         };
 
         // result.state.toolbox.set_current_tool("Nether Falling Block", &mut result.state.common_state);
@@ -132,6 +135,11 @@ impl event::EventHandler<GameError> for ViewerEventHandler {
     fn update(&mut self, ctx: &mut Context) -> Result<(), GameError> {
         let gui_ctx = self.gui.ctx();
         let state = &mut self.state.common_state;
+
+        // Track this here instead of in the mouse down event because it causes the gui to
+        // flicker when called from there
+        state.gui_wants_input = gui_ctx.wants_pointer_input();
+
         egui::Window::new("General").movable(false).show(&gui_ctx, |ui| {
             egui::Grid::new("general_grid")
                 .num_columns(2)
@@ -250,7 +258,7 @@ impl event::EventHandler<GameError> for ViewerEventHandler {
 
     fn mouse_button_down_event(&mut self, ctx: &mut Context, button: MouseButton, _x: f32, _y: f32) -> Result<(), GameError> {
         let state = &mut self.state.common_state;
-        if !self.gui.ctx().is_pointer_over_area() {
+        if !state.gui_wants_input {
             if button == MouseButton::Left {
                 state.dragging = true
             }

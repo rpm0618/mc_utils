@@ -155,7 +155,7 @@ impl ChunkDebugMap {
         }
     }
 
-    // Step back to the previous tick that has an event in given chunk
+    // Step back to the previous tick that has an event in the given chunk
     pub fn step_back_chunk(&mut self, chunk: ChunkPos) {
         let entry_map = self.entry_maps.get(&self.current_dimension).unwrap();
         let eh_indices = entry_map.chunk_entry_holders.get(&chunk);
@@ -180,6 +180,11 @@ impl ChunkDebugMap {
     pub fn step_forward(&mut self) {
         let entry_map = self.entry_maps.get(&self.current_dimension).unwrap();
         let entry_holders = &entry_map.entry_holders;
+
+        if entry_holders.len() == 0 {
+            return;
+        }
+
         if self.max_entry_holder_index < entry_holders.len() - 1 {
             self.max_entry_holder_index += 1;
             self.dirty = true;

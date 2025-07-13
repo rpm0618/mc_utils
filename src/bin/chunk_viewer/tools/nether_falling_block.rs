@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
+use egui;
 use ggez::graphics::Color;
-use ggegui::{egui, GuiContext};
 use mc_utils::positions::{BlockPos, ChunkPos, Direction};
 use tinyfiledialogs::MessageBoxIcon;
 use mc_utils::cluster_finder12::HashClusterSet;
@@ -13,6 +13,7 @@ use std::fs::File;
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::io::Write;
 use crate::chunk_viewer::chunk_layer::{HashSetLayer, LayerGroup};
+use crate::chunk_viewer::gui::GuiContext;
 use crate::chunk_viewer::event_handler::{CommonState, State};
 use crate::chunk_viewer::task_list::{Task, TaskList, TaskStatus};
 use crate::chunk_viewer::tools::Tool;

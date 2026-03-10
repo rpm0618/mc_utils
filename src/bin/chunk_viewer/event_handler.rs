@@ -320,7 +320,7 @@ impl event::EventHandler<GameError> for ViewerEventHandler {
 
     fn mouse_wheel_event(&mut self, ctx: &mut Context, x: f32, y: f32) -> Result<(), GameError> {
         let state = &mut self.state.common_state;
-        if !self.gui.ctx().wants_pointer_input() {
+        if !state.gui_wants_input {
             state.viewport.zoom_into(y * 0.1, ctx.mouse.position());
         } else {
             self.gui.input.mouse_wheel_event(x, y * 10.0);
@@ -336,7 +336,7 @@ impl event::EventHandler<GameError> for ViewerEventHandler {
     fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) -> Result<(), GameError> {
         let state = &mut self.state.common_state;
         state.viewport.on_resize(width, height, ctx.gfx.window().scale_factor() as f32);
-        self.gui.input.set_scale_factor(state.viewport.scale_factor * state.viewport.zoom, (width, height));
+        self.gui.input.set_scale_factor(state.viewport.scale_factor, (width, height));
         Ok(())
     }
 }

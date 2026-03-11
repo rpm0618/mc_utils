@@ -4,3 +4,4 @@ pub mod event_handler;
 pub mod chunk_layer;
 pub mod tools;
 mod gui;
+mod sidebar;

@@ -92,6 +92,7 @@ impl Tool for ChunkDebugTool {
         let layer = VirtualChunkLayer::new(provider);
         layer_group.add_layer("debug", layer, 0);
         state.layers.add_layer("chunk_debug", layer_group, 0);
+        state.sidebar.hide();
     }
 
     fn stop(&mut self, state: &mut CommonState) {
@@ -133,7 +134,7 @@ impl Tool for ChunkDebugTool {
                         }
                         ui.horizontal(|ui| {
                             ui.label("Port: ");
-                            ui.add(egui::DragValue::new(&mut self.port).clamp_range(1024..=65535));
+                            ui.add(egui::DragValue::new(&mut self.port).range(1024..=65535));
                         });
                     }
                     ui.end_row();
@@ -217,7 +218,7 @@ impl Tool for ChunkDebugTool {
                         display.push_str("\n");
                     }
                     egui::ScrollArea::both().show(ui, |ui| {
-                        ui.style_mut().wrap = Some(false);
+                        ui.style_mut().wrap_mode = None;
                         ui.label(display);
                     });
                 }

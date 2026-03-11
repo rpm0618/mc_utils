@@ -11,4 +11,8 @@ impl Block {
             data
         }
     }
+
+    pub fn air() -> Block {
+        Block::new(0, 0)
+    }
 }

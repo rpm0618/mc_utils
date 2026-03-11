@@ -1,5 +1,6 @@
 pub mod nether_falling_block;
 pub mod chunk_debug;
+pub mod rehash;
 
 use std::any::Any;
 use std::collections::HashMap;

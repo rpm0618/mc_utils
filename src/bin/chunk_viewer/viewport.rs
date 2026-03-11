@@ -119,4 +119,10 @@ impl Viewport {
         // Set view_origin so that the chunk is centered on the screen
         self.view_origin = vec2(chunk_center_x - screen_center_x, chunk_center_y - screen_center_y);
     }
+
+    pub fn chunk_iter(&self) -> impl Iterator<Item=ChunkPos> {
+        let tl = self.chunk_at(vec2(0.0, 0.0));
+        let br = self.chunk_at(vec2(self.screen_width, self.screen_height));
+        (tl.x..=br.x).flat_map(move |x| (tl.z..=br.z).map(move |z| ChunkPos { x, z }))
+    }
 }

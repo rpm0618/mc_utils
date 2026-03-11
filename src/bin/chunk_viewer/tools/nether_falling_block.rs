@@ -235,6 +235,7 @@ impl Tool for NetherFallingBlockTool {
         layer_group.add_layer("cluster", HashSetLayer::new(HashSet::new(), Color::BLUE), 4);
         layer_group.add_layer("cluster_origin", HashSetLayer::new(HashSet::new(), Color::MAGENTA), 5);
         state.layers.add_layer("nether_falling_block", layer_group, 0);
+        state.sidebar.hide();
     }
 
     fn stop(&mut self, state: &mut CommonState) {
@@ -257,7 +258,7 @@ impl Tool for NetherFallingBlockTool {
                     ui.end_row();
 
                     if self.world_path.is_none() {
-                        ui.set_enabled(false);
+                        ui.disable()
                     }
 
                     ui.label("Cluster Origin");
@@ -338,10 +339,6 @@ impl Tool for NetherFallingBlockTool {
                         ui.label(format!("{:?}", origin));
                     }
                     ui.end_row();
-
-                    if self.world_path.is_none() {
-                        ui.set_enabled(true);
-                    }
                 });
         });
     }

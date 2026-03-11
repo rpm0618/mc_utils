@@ -1,9 +1,10 @@
-use std::io::{Error, Read};
+use std::io::{Read};
 use byteorder::{BigEndian, ReadBytesExt};
 use flate2::read::{GzDecoder, ZlibDecoder};
 use java_string::JavaString;
 use crate::positions::{BlockPos, ChunkPos};
 use crate::block::Block;
+use crate::error::Result;
 use crate::nbt;
 use crate::nbt::{LeafTag, NbtPath, NbtPathElement, NbtVisitor, visit_nbt};
 
@@ -155,7 +156,7 @@ impl NbtVisitor for ChunkVisitor {
 }
 
 impl Chunk {
-    pub fn parse<R: Read>(reader: &mut R) -> Result<Chunk, Error> {
+    pub fn parse<R: Read>(reader: &mut R) -> Result<Chunk> {
         let length = reader.read_u32::<BigEndian>()?;
         let compression_type = reader.read_u8()?;
 
@@ -218,5 +219,9 @@ impl Chunk {
 
     pub fn entity_iter(&self) -> impl Iterator<Item=&Entity> + '_ {
         self.data.entities.iter()
+    }
+
+    pub fn num_subchunks(&self) -> usize {
+        self.data.sections.len()
     }
 }

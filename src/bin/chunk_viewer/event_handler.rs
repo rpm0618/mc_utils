@@ -9,10 +9,12 @@ use crate::chunk_viewer::viewport::Viewport;
 
 use crate::chunk_viewer::chunk_layer::{ChunkLayer, DiagonalProvider, HashSetLayer, LayerGroup, VirtualChunkLayer};
 use crate::chunk_viewer::gui::Gui;
+use crate::chunk_viewer::sidebar::Sidebar;
 use crate::chunk_viewer::task_list::TaskList;
 use crate::chunk_viewer::tools::nether_falling_block::NetherFallingBlockTool;
 use crate::chunk_viewer::tools::{Toolbox};
 use crate::chunk_viewer::tools::chunk_debug::ChunkDebugTool;
+use crate::chunk_viewer::tools::rehash::tool::RehashTool;
 
 #[derive(PartialEq, Eq, Copy, Clone)]
 enum SelectionMode {
@@ -24,6 +26,7 @@ enum SelectionMode {
 pub struct CommonState {
     pub viewport: Viewport,
     pub layers: LayerGroup,
+    pub sidebar: Sidebar,
 
     pub selection: HashSet<ChunkPos>,
 
@@ -106,6 +109,9 @@ impl ViewerEventHandler {
         let mut toolbox = Toolbox::new();
         toolbox.add_tool("Nether Falling Block", NetherFallingBlockTool::new());
         toolbox.add_tool("1.8 Chunk Debug", ChunkDebugTool::new());
+        toolbox.add_tool("Rehash", RehashTool::new());
+
+        let sidebar = Sidebar::new(false);
 
         let mut result = ViewerEventHandler {
             gui: Gui::new(ctx),
@@ -114,6 +120,7 @@ impl ViewerEventHandler {
                 common_state: CommonState {
                     viewport: Viewport::new(),
                     layers: layer_group,
+                    sidebar,
                     dragging: false,
                     selection: HashSet::new(),
                     selection_rect_origin: None,
@@ -261,6 +268,9 @@ impl event::EventHandler<GameError> for ViewerEventHandler {
         if original_screen_coords.is_some() {
             canvas.set_screen_coordinates(original_screen_coords.unwrap());
         }
+
+        state.sidebar.render(&state.viewport, ctx, &mut canvas)?;
+
         canvas.draw(&self.gui, DrawParam::default());
 
         canvas.finish(ctx)?;

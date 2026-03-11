@@ -38,6 +38,12 @@ impl ChunkPos {
 
         (h as i32) & mask
     }
+
+    pub fn hash_code(&self) -> i32 {
+        let i = 1664525i32.overflowing_mul(self.x.overflowing_add(1013904223).0).0;
+        let j = 1664525i32.overflowing_mul((self.z ^ -559038737).overflowing_add(1013904223).0).0;
+        i ^ j
+    }
 }
 impl From<(i32, i32)> for ChunkPos {
     fn from((x, z): (i32, i32)) -> Self {

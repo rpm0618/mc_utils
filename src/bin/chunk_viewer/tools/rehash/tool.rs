@@ -652,7 +652,7 @@ impl Tool for RehashTool {
                             .selected_text(format!("{:?}", self.stall_subtool.anvil_mask + 1))
                             .show_ui(ui, |ui| {
                                 let mut cur_size = 16;
-                                for _ in 0..10 {
+                                for _ in 0..12 {
                                     if ui.selectable_value(&mut self.stall_subtool.anvil_mask, cur_size - 1, format!("{}", cur_size)).clicked() {
                                         self.update_view(state);
                                     }

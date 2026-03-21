@@ -34,7 +34,9 @@ impl<'a, T, C> Task<'a, T, C> where T: Send + 'static {
 
         thread::spawn(move || {
             let result = work(tx.clone());
-            tx.send(TaskStatus::Done(result)).unwrap();
+            if let Err(err) = tx.send(TaskStatus::Done(result)) {
+                println!("Failed to send result to task: {}", err);
+            }
         });
 
         Task {

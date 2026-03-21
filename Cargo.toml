@@ -38,8 +38,8 @@ mio = { version = "1.1.1", features = ["os-poll", "net"] }
 
 thiserror = "2.0.18"
 anyhow = "1.0.102"
-indexmap = "1.9.3"
-bitflags = "2.9.1"
+indexmap = "2.13.0"
+bitflags = "2.11.0"
 
 [profile.dev.package."*"]
 opt-level = 2

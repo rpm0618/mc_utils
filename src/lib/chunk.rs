@@ -18,7 +18,8 @@ pub struct Chunk {
 struct ChunkData {
     pos: ChunkPos,
     sections: Vec<ChunkSection>,
-    entities: Vec<Entity>
+    entities: Vec<Entity>,
+    terrain_populated: bool,
 }
 #[derive(Debug)]
 struct ChunkSection {
@@ -42,7 +43,8 @@ impl ChunkVisitor {
             data: ChunkData {
                 pos: (0, 0).into(),
                 sections: Vec::new(),
-                entities: Vec::new()
+                entities: Vec::new(),
+                terrain_populated: false,
             }
         }
     }
@@ -66,6 +68,11 @@ impl ChunkVisitor {
                 return Err(nbt::NbtError::Custom("Unexpected Chunk Structure, chunk zPos is not an int".to_string()));
             };
             self.data.pos.z = z_pos;
+        } else if second_level == "TerrainPopulated" {
+            let LeafTag::Byte(terrain_populated) = val else {
+                return Err(nbt::NbtError::Custom("Unexpected Chunk Structure, chunk TerrainPopulated is not a byte".to_string()));
+            };
+            self.data.terrain_populated = terrain_populated != 0;
         }
 
         Ok(())
@@ -164,14 +171,14 @@ impl Chunk {
         match compression_type {
             1 => {
                 let mut reader = GzDecoder::new(reader);
-                visit_nbt(&mut reader, &mut visitor).unwrap();
+                visit_nbt(&mut reader, &mut visitor)?;
             }
             2 => {
                 let mut reader = ZlibDecoder::new(reader);
-                visit_nbt(&mut reader, &mut visitor).unwrap();
+                visit_nbt(&mut reader, &mut visitor)?;
             }
             3 => {
-                visit_nbt(reader, &mut visitor).unwrap();
+                visit_nbt(reader, &mut visitor)?;
             }
             _ => panic!("Unknown compression type {}", compression_type)
         };
@@ -223,5 +230,8 @@ impl Chunk {
 
     pub fn num_subchunks(&self) -> usize {
         self.data.sections.len()
+    }
+    pub fn is_terrain_populated(&self) -> bool {
+        self.data.terrain_populated
     }
 }

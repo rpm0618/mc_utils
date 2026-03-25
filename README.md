@@ -15,6 +15,9 @@ Currently, it has a cluster finder that only includes chunks without fire, as we
 generate a litematica of all the fires in a set of selected chunks. I would like to eventually provide
 a setup location finder which takes the cluster into account.
 
+### Rehash
+Provides a tool to aid in the creation of a rehash based chunk swap setup (specifically a peaceful setup).
+
 ## Developing
 Ensure you have a nightly version of the rust toolchain, as I make use of `#![feature(trait_upcasting)]` (if using
 [rustup](https://github.com/rust-lang/rustup) this should happen automatically from the 

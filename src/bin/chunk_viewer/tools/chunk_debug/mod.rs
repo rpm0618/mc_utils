@@ -13,6 +13,7 @@ use serde::Deserialize;
 use mc_utils::world::Dimension;
 
 use base64::prelude::*;
+use mc_utils::deobf::deobfuscate_method;
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
 enum Event {
@@ -88,4 +89,20 @@ impl FromStr for ChunkDebugEntry {
         };
         Ok(entry)
     }
+}
+
+pub fn deobfuscate_stacktrace(stack_trace: &str) -> String {
+    let mut result = String::new();
+
+    for line in stack_trace.lines() {
+        if let Some((method, rest)) = line.split_once("(") {
+            if let Some(deobf_method) = deobfuscate_method(method) {
+                result.push_str(&format!("{}({}\n", deobf_method, rest));
+            }
+        } else {
+            result.push_str(&format!("{}\n", line));
+        }
+    }
+
+    result
 }

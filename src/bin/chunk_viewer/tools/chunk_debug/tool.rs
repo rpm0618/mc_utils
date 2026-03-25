@@ -10,7 +10,7 @@ use crate::chunk_viewer::chunk_layer::{CheckerboardProvider, LayerGroup, Virtual
 use crate::chunk_viewer::gui::GuiContext;
 use crate::chunk_viewer::event_handler::{CommonState, State};
 use crate::chunk_viewer::task_list::{TaskList};
-use crate::chunk_viewer::tools::chunk_debug::{ChunkDebugEntry};
+use crate::chunk_viewer::tools::chunk_debug::{deobfuscate_stacktrace, ChunkDebugEntry};
 use crate::chunk_viewer::tools::chunk_debug::map::ChunkDebugMap;
 use crate::chunk_viewer::tools::chunk_debug::server::{ChunkDebugServer, ServerStatus};
 use crate::chunk_viewer::tools::Tool;
@@ -213,7 +213,8 @@ impl Tool for ChunkDebugTool {
                             display.push_str(&format!("Custom: {}\n", custom));
                         }
                         if let Some(stack_trace) = &entry.metadata.stack_trace {
-                            display.push_str(&format!("Stack Trace: {}\n", stack_trace));
+                            let stack_trace = deobfuscate_stacktrace(stack_trace);
+                            display.push_str(&format!("Stack Trace:\n{}\n", stack_trace));
                         }
                         display.push_str("\n");
                     }

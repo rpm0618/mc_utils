@@ -16,3 +16,4 @@ pub mod kdtree_chunkpos;
 pub mod mst;
 pub mod raw_chunk;
 pub mod chm_simulator;
+pub mod deobf;

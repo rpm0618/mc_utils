@@ -41,5 +41,7 @@ anyhow = "1.0.102"
 indexmap = "2.13.0"
 bitflags = "2.11.0"
 
+nom = "8.0.0"
+
 [profile.dev.package."*"]
 opt-level = 2
